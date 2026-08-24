@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Virtual environment
+.venv/
+
+# Build output -- these are generated, and each rebuild would add another
+# ~93 MB blob to history that can never be removed.
+build/_work/
+exe/*
+!exe/README.md
+*.spec.bak
+
+# Downloaded dependencies. The GDAL wheel is 45 MB; README.md has the link
+# to fetch it instead.
+wheels/
+
+# Test data
+Sample/
+sample/
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

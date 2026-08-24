@@ -1,0 +1,268 @@
+/* Raster Image Tiler - application stylesheet.
+   Loaded at startup by main.py and applied to the whole QApplication. */
+
+QWidget {
+    font-family: "Segoe UI", "Inter", sans-serif;
+    font-size: 10pt;
+    color: #1f2328;
+}
+
+QMainWindow, QDialog {
+    background: #f5f6f8;
+}
+
+QScrollArea, QScrollArea > QWidget > QWidget {
+    background: transparent;
+    border: none;
+}
+
+/* The settings box is the one scroll area that shows its frame. */
+QScrollArea#settingsScroll {
+    background: #ffffff;
+    border: 1px solid #cdd4dc;
+    border-radius: 8px;
+}
+
+QScrollArea#settingsScroll > QWidget > QWidget {
+    background: #ffffff;
+}
+
+/* ---------- labels ---------- */
+
+QLabel#sectionLabel {
+    font-size: 10.5pt;
+    font-weight: 700;
+    color: #0d1117;
+    padding-top: 2px;
+}
+
+QLabel#fieldLabel {
+    color: #3d444d;
+}
+
+QLabel#pathLabel {
+    color: #57606a;
+    font-size: 9pt;
+    padding-left: 2px;
+}
+
+QLabel#rangeDash {
+    color: #57606a;
+    font-weight: 700;
+}
+
+QLabel#statusLabel {
+    color: #57606a;
+    font-size: 9pt;
+}
+
+QLabel#subSectionLabel {
+    font-weight: 600;
+    color: #4a5560;
+    font-size: 9.5pt;
+    padding-top: 6px;
+}
+
+QFrame#separator {
+    background: #e1e5ea;
+    border: none;
+}
+
+/* ---------- collapsible advanced section ---------- */
+
+QToolButton#collapsibleToggle {
+    background: transparent;
+    border: none;
+    font-size: 10.5pt;
+    font-weight: 700;
+    color: #0d1117;
+    padding: 4px 0;
+    text-align: left;
+}
+
+QToolButton#collapsibleToggle:hover {
+    color: #2563eb;
+}
+
+/* ---------- checkboxes ---------- */
+
+QCheckBox {
+    spacing: 8px;
+    color: #3d444d;
+}
+
+QCheckBox::indicator {
+    width: 15px;
+    height: 15px;
+    border: 1px solid #cdd4dc;
+    border-radius: 4px;
+    background: #ffffff;
+}
+
+QCheckBox::indicator:checked {
+    background: #2563eb;
+    border-color: #1d4ed8;
+}
+
+QCheckBox::indicator:disabled {
+    background: #f2f4f7;
+    border-color: #e3e7ec;
+}
+
+/* ---------- inputs ---------- */
+
+QLineEdit, QComboBox, QSpinBox {
+    background: #ffffff;
+    border: 1px solid #cdd4dc;
+    border-radius: 6px;
+    padding: 6px 10px;
+    selection-background-color: #2563eb;
+    selection-color: #ffffff;
+}
+
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus {
+    border: 1px solid #2563eb;
+}
+
+QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled {
+    background: #f2f4f7;
+    color: #8c959f;
+}
+
+/* %ICONS% is replaced with an absolute path by main.load_stylesheet().
+   Deleting the ::drop-down and ::down-arrow rules restores Qt's native
+   arrow, if the SVG ever fails to load. */
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 26px;
+    border: none;
+    border-left: 1px solid #e4e8ec;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+
+QComboBox::drop-down:hover {
+    background: #eef1f5;
+}
+
+QComboBox::down-arrow {
+    image: url("%ICONS%/chevron-down.svg");
+    width: 11px;
+    height: 11px;
+}
+
+QComboBox::down-arrow:on {
+    top: 1px;
+}
+
+/* Popup list */
+QComboBox QAbstractItemView {
+    background: #ffffff;
+    border: 1px solid #cdd4dc;
+    border-radius: 6px;
+    padding: 4px;
+    outline: none;
+    selection-background-color: #2563eb;
+    selection-color: #ffffff;
+}
+
+QComboBox QAbstractItemView::item {
+    min-height: 24px;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* ---------- image properties ---------- */
+
+QFrame#propertiesPanel {
+    background: #ffffff;
+    border: 1px solid #cdd4dc;
+    border-radius: 8px;
+}
+
+QLabel#propertiesHeading {
+    font-weight: 700;
+    color: #0d1117;
+    font-size: 9.5pt;
+    padding-bottom: 2px;
+}
+
+QLabel#propertyName {
+    color: #6a7280;
+    font-size: 9pt;
+}
+
+QLabel#propertyValue {
+    color: #1f2328;
+    font-size: 9pt;
+    font-weight: 600;
+}
+
+QLabel#timingLabel {
+    color: #57606a;
+    font-size: 9pt;
+}
+
+/* ---------- progress ---------- */
+
+QProgressBar {
+    background: #eceff3;
+    border: 1px solid #cdd4dc;
+    border-radius: 6px;
+    text-align: center;
+    font-weight: 600;
+    color: #1f2328;
+}
+
+QProgressBar::chunk {
+    background: #2563eb;
+    border-radius: 5px;
+}
+
+/* ---------- buttons ---------- */
+
+QPushButton {
+    background: #f5f7fa;
+    border: 1px solid #cdd4dc;
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-weight: 600;
+    color: #1f2328;
+}
+
+QPushButton:hover   { background: #e9edf2; }
+QPushButton:pressed { background: #dde3ea; }
+QPushButton:disabled {
+    background: #f5f7fa;
+    border-color: #e3e7ec;
+    color: #a3acb6;
+}
+
+QPushButton#startButton {
+    background: #2563eb;
+    border: 1px solid #1d4ed8;
+    color: #ffffff;
+}
+QPushButton#startButton:hover    { background: #1d4ed8; }
+QPushButton#startButton:pressed  { background: #1a43bf; }
+QPushButton#startButton:disabled {
+    background: #b9cbf4;
+    border-color: #b9cbf4;
+    color: #f4f7ff;
+}
+
+QPushButton#browseButton {
+    padding: 0;
+    font-size: 11pt;
+    font-weight: 700;
+    color: #3d444d;
+}
+
+QPushButton#cancelButton:enabled {
+    background: #fff6f5;
+    border: 1px solid #eeb0a8;
+    color: #b42318;
+}
+QPushButton#cancelButton:enabled:hover { background: #ffe9e6; }
