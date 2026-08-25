@@ -176,9 +176,12 @@ class MainWindow(QMainWindow):
         )
         paths.addSpacing(6)
 
+        paths.addLayout(self._build_formats_row())
+        paths.addSpacing(6)
+
         paths.addWidget(self._small_label("output"))
         self.output_edit, self.output_browse = self._path_row(
-            paths, placeholder=r"C:\data\tiles"
+            paths, placeholder=r"C:\data\drone\output"
         )
         paths.addSpacing(20)
         paths.addWidget(section_label("Settings"))
@@ -191,6 +194,48 @@ class MainWindow(QMainWindow):
         top.addWidget(self.properties)
 
         return top
+
+    def _build_formats_row(self) -> QHBoxLayout:
+        """Which of the three outputs this run should produce.
+
+        Checkboxes rather than a choice, because wanting the browsable tile
+        tree *and* an archive to upload is the normal case. gdal2tiles runs
+        either way -- the archives are packed from its output -- so leaving
+        XYZ unticked just means the tree is cleaned up afterwards.
+        """
+        row = QHBoxLayout()
+        row.setSpacing(14)
+
+        row.addWidget(self._small_label("formats"))
+
+        self.xyz_format_check = QCheckBox("XYZ folder")
+        self.xyz_format_check.setChecked(True)
+        self.xyz_format_check.setToolTip(
+            "The {z}/{x}/{y} tile tree, written to <output>\\tiles"
+        )
+
+        self.mbtiles_format_check = QCheckBox("MBTiles")
+        self.mbtiles_format_check.setToolTip(
+            "Single SQLite archive, written to <output>\\mbtiles.\n"
+            "Editable -- keep this as the master copy."
+        )
+
+        self.pmtiles_format_check = QCheckBox("PMTiles")
+        self.pmtiles_format_check.setToolTip(
+            "Single sealed archive, written to <output>\\pmtiles.\n"
+            "Reads over HTTP range requests -- upload this to the web."
+        )
+
+        for check in (
+            self.xyz_format_check,
+            self.mbtiles_format_check,
+            self.pmtiles_format_check,
+        ):
+            check.setCursor(Qt.CursorShape.PointingHandCursor)
+            row.addWidget(check)
+
+        row.addStretch(1)
+        return row
 
     # -- middle: scrollable settings box ---------------------------------
 
@@ -462,6 +507,13 @@ class MainWindow(QMainWindow):
         # auto-filled value does not count as a manual edit.
         self.output_edit.textEdited.connect(self._on_output_edited)
 
+        for check in (
+            self.xyz_format_check,
+            self.mbtiles_format_check,
+            self.pmtiles_format_check,
+        ):
+            check.toggled.connect(self._update_start_state)
+
         self.zoom_min_spin.valueChanged.connect(self._sync_zoom_bounds)
         self.zoom_max_spin.valueChanged.connect(self._sync_zoom_bounds)
 
@@ -524,8 +576,12 @@ class MainWindow(QMainWindow):
         self._output_edited_by_user = bool(text.strip())
 
     def _default_output_dir(self, input_path: str) -> str:
-        """Sibling 'tiles' folder next to the chosen raster."""
-        return str(Path(input_path).expanduser().resolve().parent / "tiles")
+        """Sibling 'output' folder next to the chosen raster.
+
+        This is the container, not the tile tree -- core.tiler puts tiles,
+        mbtiles and pmtiles in their own subfolders underneath it.
+        """
+        return tiler.default_output_dir(input_path)
 
     def _autofill_output(self, input_path: str):
         if self._output_edited_by_user:
@@ -636,10 +692,22 @@ class MainWindow(QMainWindow):
         )
 
     def _update_start_state(self):
-        ready = bool(self.input_edit.text().strip()) and bool(
-            self.output_edit.text().strip()
+        ready = (
+            bool(self.input_edit.text().strip())
+            and bool(self.output_edit.text().strip())
+            and self._any_format_selected()
         )
         self.start_button.setEnabled(ready)
+
+    def _any_format_selected(self) -> bool:
+        return any(
+            check.isChecked()
+            for check in (
+                self.xyz_format_check,
+                self.mbtiles_format_check,
+                self.pmtiles_format_check,
+            )
+        )
 
     # ------------------------------------------------------------------
     # Persistence
@@ -653,6 +721,9 @@ class MainWindow(QMainWindow):
         """
         advanced = self.advanced_panel
         return {
+            "want_xyz": self.xyz_format_check,
+            "want_mbtiles": self.mbtiles_format_check,
+            "want_pmtiles": self.pmtiles_format_check,
             "zoom_min": self.zoom_min_spin,
             "zoom_max": self.zoom_max_spin,
             "tiledriver": self.driver_combo,
@@ -821,7 +892,19 @@ class MainWindow(QMainWindow):
     def _on_job_succeeded(self, output_dir: str):
         self.set_progress(100)
         self._finish_timing()
-        self.set_status(f"Done. Tiles written to {output_dir}")
+
+        produced = [
+            name
+            for name, check in (
+                ("tiles", self.xyz_format_check),
+                ("mbtiles", self.mbtiles_format_check),
+                ("pmtiles", self.pmtiles_format_check),
+            )
+            if check.isChecked()
+        ]
+        self.set_status(
+            f"Done. {', '.join(produced)} written to {output_dir}"
+        )
 
     def _on_job_failed(self, detail: str):
         self.set_progress(0)
@@ -887,6 +970,9 @@ class MainWindow(QMainWindow):
         settings = {
             "input_path": self.input_edit.text().strip(),
             "output_dir": self.output_edit.text().strip(),
+            "want_xyz": self.xyz_format_check.isChecked(),
+            "want_mbtiles": self.mbtiles_format_check.isChecked(),
+            "want_pmtiles": self.pmtiles_format_check.isChecked(),
             "zoom_min": self.zoom_min_spin.value(),
             "zoom_max": self.zoom_max_spin.value(),
             "tiledriver": self.driver_combo.currentText(),
@@ -911,7 +997,7 @@ class MainWindow(QMainWindow):
         settings = self.current_settings()
         return tiler.build_arguments(settings) + [
             settings["input_path"],
-            settings["output_dir"],
+            tiler.tiles_dir(settings["output_dir"]),
         ]
 
     def set_status(self, message: str):
@@ -927,6 +1013,9 @@ class MainWindow(QMainWindow):
             self.input_browse,
             self.output_edit,
             self.output_browse,
+            self.xyz_format_check,
+            self.mbtiles_format_check,
+            self.pmtiles_format_check,
             self.zoom_min_spin,
             self.zoom_max_spin,
             self.driver_combo,

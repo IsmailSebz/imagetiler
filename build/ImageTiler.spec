@@ -52,7 +52,10 @@ except Exception as exc:  # pragma: no cover - build-time diagnostics
         "Activate the venv that has GDAL installed before building."
     )
 
-hiddenimports += ["osgeo_utils.gdal2tiles", "numpy"]
+# core.package imports pmtiles.convert lazily, inside the function that
+# needs it, so PyInstaller's static analysis never sees the import.
+hiddenimports += ["osgeo_utils.gdal2tiles", "numpy", "pmtiles",
+                  "pmtiles.convert", "pmtiles.writer", "pmtiles.tile"]
 
 
 # ----------------------------------------------------------------------

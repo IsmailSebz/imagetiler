@@ -6,6 +6,16 @@ process, streams its progress back through a callback, and can be cancelled.
 gdal2tiles is run out-of-process on purpose: it has no cancellation hook and
 calling it in-process would mean no way to stop a long job, and any crash in
 GDAL would take the GUI down with it.
+
+`output_dir` is a container, not the tile tree itself. One run can produce up
+to three things, and they each get their own folder inside it:
+
+    <output_dir>/tiles/      the {z}/{x}/{y} tree gdal2tiles writes
+    <output_dir>/mbtiles/    <name>.mbtiles
+    <output_dir>/pmtiles/    <name>.pmtiles
+
+gdal2tiles always runs, because the single-file archives are packed from its
+output. If the XYZ tree itself was not asked for, it is removed afterwards.
 """
 
 from __future__ import annotations
@@ -16,9 +26,10 @@ import shutil
 import subprocess
 import threading
 import time
+from pathlib import Path
 from typing import Callable
 
-from core import estimate, raster, runtime
+from core import estimate, package, raster, runtime
 from core.raster import RasterError
 
 # Values the UI ships with. A setting equal to its default is left off the
@@ -53,12 +64,59 @@ DEFAULTS: dict[str, object] = {
 }
 
 
+# Output formats, and the subfolder each one lands in.
+TILES_SUBDIR = "tiles"
+MBTILES_SUBDIR = "mbtiles"
+PMTILES_SUBDIR = "pmtiles"
+
+# Share of the progress bar given to gdal2tiles when packaging follows it.
+# Packing is file copying, so it is fast next to the tiling itself, but a
+# large pyramid still takes long enough that the bar should not sit at 100.
+_TILING_SHARE = 92
+
+
 class TilerError(RuntimeError):
     """Raised when a tiling job cannot start or fails."""
 
 
 class Cancelled(Exception):
     """Raised internally when the user cancels a run."""
+
+
+# ----------------------------------------------------------------------
+# Output layout
+# ----------------------------------------------------------------------
+
+
+def tiles_dir(output_dir: str) -> str:
+    """Where gdal2tiles writes, inside the chosen output folder."""
+    return os.path.join(output_dir, TILES_SUBDIR)
+
+
+def default_output_dir(input_path: str) -> str:
+    """Sibling 'output' folder next to the chosen raster."""
+    return str(Path(input_path).expanduser().resolve().parent / "output")
+
+
+def output_name(input_path: str) -> str:
+    """Archive filename stem, taken from the raster's own name."""
+    stem = Path(input_path).stem.strip()
+    # Keep it usable as a filename on Windows regardless of the source name.
+    cleaned = "".join(c for c in stem if c not in '<>:"/\\|?*').strip()
+    return cleaned or "tiles"
+
+
+def wanted_formats(settings: dict) -> tuple[bool, bool, bool]:
+    """(xyz, mbtiles, pmtiles) as requested, defaulting to XYZ only."""
+    if not any(
+        key in settings for key in ("want_xyz", "want_mbtiles", "want_pmtiles")
+    ):
+        return True, False, False
+    return (
+        bool(settings.get("want_xyz", False)),
+        bool(settings.get("want_mbtiles", False)),
+        bool(settings.get("want_pmtiles", False)),
+    )
 
 
 ProgressFn = Callable[[int], None]
@@ -172,9 +230,10 @@ def build_arguments(settings: dict) -> list[str]:
 def command_preview(settings: dict) -> str:
     """Human-readable command, for the status line."""
     args = build_arguments(settings)
+    output_dir = str(settings.get("output_dir", "")).strip()
     args += [
         str(settings.get("input_path", "")),
-        str(settings.get("output_dir", "")),
+        tiles_dir(output_dir) if output_dir else "",
     ]
     return "gdal2tiles " + " ".join(_quote(a) for a in args)
 
@@ -298,8 +357,17 @@ def run(
     if not output_dir:
         raise TilerError("No output folder selected.")
 
+    want_xyz, want_mbtiles, want_pmtiles = wanted_formats(settings)
+    if not (want_xyz or want_mbtiles or want_pmtiles):
+        raise TilerError("No output format selected.")
+
+    tile_tree = tiles_dir(output_dir)
+    # Only ever remove a tile tree this run created. One that was already
+    # there belongs to the user, even when they asked for archives only.
+    tree_existed = os.path.isdir(tile_tree)
+
     try:
-        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(tile_tree, exist_ok=True)
     except OSError as exc:
         raise TilerError(f"Could not create output folder:\n{exc}") from exc
 
@@ -328,18 +396,22 @@ def run(
             temp_vrt = raster.make_byte_vrt(input_path, info)
             source = temp_vrt
 
-        argv = command + build_arguments(settings) + [source, output_dir]
+        argv = command + build_arguments(settings) + [source, tile_tree]
         progress(0)
+
+        packing = want_mbtiles or want_pmtiles
+        ceiling = _TILING_SHARE if packing else 100
 
         _stream_process(
             argv,
-            output_dir,
+            tile_tree,
             prediction.total_tiles,
             progress,
             message,
             stats,
             cancelled,
             settings,
+            ceiling,
         )
 
     except RasterError as exc:
@@ -348,19 +420,82 @@ def run(
         if temp_vrt:
             raster._quiet_remove(temp_vrt)
 
+    if want_mbtiles or want_pmtiles:
+        _package_archives(
+            settings,
+            input_path,
+            output_dir,
+            tile_tree,
+            want_mbtiles,
+            want_pmtiles,
+            progress,
+            message,
+            cancelled,
+        )
+
+    if not want_xyz and not tree_existed:
+        message("Removing the intermediate tile folder...")
+        shutil.rmtree(tile_tree, ignore_errors=True)
+
     progress(100)
     return output_dir
 
 
+def _package_archives(
+    settings: dict,
+    input_path: str,
+    output_dir: str,
+    tile_tree: str,
+    want_mbtiles: bool,
+    want_pmtiles: bool,
+    progress: ProgressFn,
+    message: MessageFn,
+    cancelled: CancelFn,
+):
+    """Pack the tile tree into the requested single-file archives."""
+    span = 100 - _TILING_SHARE
+
+    def on_pack_progress(done: int, total: int):
+        if total > 0:
+            progress(_TILING_SHARE + int(done * span / total))
+
+    try:
+        results = package.package(
+            tile_tree,
+            output_dir,
+            output_name(input_path),
+            want_mbtiles=want_mbtiles,
+            want_pmtiles=want_pmtiles,
+            tile_size=int(_get(settings, "tile_size") or 256),
+            # What we asked gdal2tiles for. Only a hint -- package.py
+            # confirms it against the tiles themselves, since a folder can
+            # also arrive from an earlier run with different settings.
+            scheme="xyz" if _get(settings, "xyz") else "tms",
+            on_progress=on_pack_progress,
+            on_message=message,
+            is_cancelled=cancelled,
+        )
+    except package.PackageCancelled as exc:
+        raise Cancelled() from exc
+    except package.PackageError as exc:
+        raise TilerError(str(exc)) from exc
+
+    for label in ("mbtiles", "pmtiles"):
+        path = results.get(label)
+        if path:
+            message(f"Wrote {os.path.basename(path)}")
+
+
 def _stream_process(
     argv: list[str],
-    output_dir: str,
+    tile_tree: str,
     expected_tiles: int,
     progress: ProgressFn,
     message: MessageFn,
     stats: StatsFn,
     cancelled: CancelFn,
     settings: dict,
+    ceiling: int = 100,
 ):
     env = dict(os.environ)
     env["PYTHONUNBUFFERED"] = "1"
@@ -402,7 +537,7 @@ def _stream_process(
     reader_thread = threading.Thread(target=reader, daemon=True)
     reader_thread.start()
 
-    counter = _TileCounter(output_dir)
+    counter = _TileCounter(tile_tree)
     started = time.monotonic()
     next_poll = started
     reader_done = False
@@ -436,9 +571,13 @@ def _stream_process(
             next_poll = now + counter.poll_interval
 
             if expected_tiles > 0:
-                # Hold at 99 until the process actually exits, so the bar
-                # never sits at 100% with work still running.
-                percent = min(99, int(done * 100 / expected_tiles))
+                # Hold just below the ceiling until the process actually
+                # exits, so the bar never sits at its maximum with work
+                # still running. The ceiling is below 100 when archives are
+                # still to be packed after tiling finishes.
+                percent = min(
+                    ceiling - 1, int(done * ceiling / expected_tiles)
+                )
                 if percent > last_percent:
                     last_percent = percent
                     progress(percent)
