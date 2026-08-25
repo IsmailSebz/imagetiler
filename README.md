@@ -1,52 +1,68 @@
 # Raster Image Tiler
+A desktop GUI for turning drone orthomosaics into web map tiles of {z}/{x}/{y} webmacator cordinates with GDAL.
 
-A desktop GUI for turning drone orthomosaics into web map tiles with GDAL.
+<img src="images/ui.jpg" alt="Image Tiler UI" width="300" height="300">
 
-Wraps `gdal2tiles` in a PyQt6 window: pick a raster, set the zoom range and
-output format, and watch a real progress bar. Before you start, it tells you
-how many tiles you are about to make, roughly how large they will be, and
-roughly how long it will take.
+## ⚠ I vibe coded this project ⚠
+And honestly, this readme document is the only file that I used my knwoledge, So you need to use this project with caution.
 
----
+## Introduction to Raster Image Tiler?
+First of all I had a project for making a web app that invoilved use of drone images into my web app and I needed to maake the drone TIFF images into tiles of lossy file formats (like webp or jpeg) and thats where I found `GDAL`, An open source software but only worked throught the terminal. To make tiles, I needed to do something like this 
+```
+gdal2tiles --zoom 0-18 input.tif output_folder/
+```
+Not forgeting, I needed to pip install gdal via anaconda because pip couldnt install gdal to the core python libraries.
+So in short, this app wraps `gdal2tiles` in a PyQt6 window
 
-## Requirements
 
-- **Python 3.12** (64-bit)
-- **PyQt6**
-- **GDAL Python bindings**, including `osgeo_utils`
+## HOW TO INSTALL
+## THOUGHT 1
+First of all, in case you just need to run the executable (.exe) file, Find it in the release of this git repo, you may not need any installation for this file. 
+But make sure you at leaste have python installed on your machine, which is a simple thing
 
-### Installing GDAL on Windows
+[Install python](https://www.python.org/downloads/):
 
-PyPI ships GDAL as source only, so `pip install gdal` tries to compile it and
-fails. Use a prebuilt wheel from
-[cgohlke/geospatial-wheels](https://github.com/cgohlke/geospatial-wheels/releases):
+## THOUGHT 2
+In case, you want it the hardway, of cloning this project. Thus is how
 
-```bat
-.venv\Scripts\activate
-pip install numpy
-pip install C:\path\to\gdal-3.12.2-cp312-cp312-win_amd64.whl
-python -c "from osgeo import gdal; print(gdal.__version__)"
+### 1. Clone this repository, Make sure you have git installed
+```bash
+    git clone https://github.com/IsmailSebz/imagetiler
 ```
 
-The wheel filename must match your Python version exactly — `cp312` for
-Python 3.12, `win_amd64` for 64-bit Windows. Pip rejects a mismatch with
-"not a supported wheel on this platform".
+### 2. Download wheels
 
-If you get `ImportError: DLL load failed while importing _gdal`, install the
-Microsoft VC++ redistributable.
+Wheels are basically the compiled binaries of the `GDAL` which can not be installed directly using `pip install gdal` except when using anaconda. 
+So, [download wheels here](https://github.com/cgohlke/geospatial-wheels/releases/download/v2026.2.26/gdal-3.12.2-cp312-cp312-win_amd64.whl)
 
----
+- After installing, move the downloaded file into the wheels folder of this project.
 
-## Running
+### 3. Install all requirements
+There are several requirements for this project that include `numpy, pyQT`, etc.
 
+You may choose to use virtual environment using
+```
+  python -m venv .venv
+  .venv\Scripts\activate
+```
+Install all requirements from the requirements.txt file
+```bash
+  pip install -r requirements.txt
+```
+
+
+## Running the program
+If you used virtual environment, you will need to activate the venv first
 ```bat
 .venv\Scripts\activate
+```
+And run the program using
+```bat
 python main.py
 ```
-
 ---
 
-## Using it
+## INTERFACE
 
 Pick an **input raster**. The output folder fills itself in as a `tiles`
 folder beside the image, and keeps tracking your choice until you type or

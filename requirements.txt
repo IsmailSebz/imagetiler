@@ -1,5 +1,5 @@
+gdal @ file://../wheels/gdal-3.12.2-cp312-cp312-win_amd64.whl
 altgraph==0.17.5
-GDAL @ file:///D:/SOFTWARE%20PROJECTS/Image%20Tiller/Resources/gdal-3.12.2-cp312-cp312-win_amd64.whl#sha256=c65f4905007e63f86d82526fbae43441207daf2ff3ba19fdb7048bc9f8726581
 numpy==2.5.2
 packaging==26.3
 pefile==2024.8.26
@@ -10,5 +10,3 @@ PyQt6-Qt6==6.11.1
 PyQt6_sip==13.12.0
 pywin32-ctypes==0.2.3
 setuptools==84.0.0
-
-

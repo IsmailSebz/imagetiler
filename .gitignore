@@ -15,7 +15,7 @@ exe/*
 
 # Downloaded dependencies. The GDAL wheel is 45 MB; README.md has the link
 # to fetch it instead.
-#wheels/
+wheels/
 
 # Test data
 Sample/
